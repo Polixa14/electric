@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <h2>{{ article.title }}</h2>
+    <span>{{ article.text }}</span>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" formaction="{% url 'article_action' slug=article.slug action='like' %}">Like</button>
+        <span>Likes: {{ likes }}</span>
+        <button type="submit" formaction="{% url 'article_action' slug=article.slug action='dislike' %}">Dislike</button>
+        <span>Dislikes: {{ dislikes }}</span>
+    </form>
+
+    {% for comment in comments %}
+        <p>{{ comment.user.name }}</p>
+        <p>{{ comment.text }}</p>
+    {% endfor %}
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_div }}
+        <input type="submit" value="comment">
+    </form>
+</body>
+</html>
