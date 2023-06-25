@@ -50,10 +50,13 @@ INSTALLED_APPS = [
     'django_extensions',
     'rosetta',
     'silk',
+    'rest_framework',
+    'drf_yasg',
 
     'accounts',
     'main',
     'articles',
+    'apparatus'
 
 ]
 
@@ -100,8 +103,12 @@ AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrPhoneModelBackend']
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'electric',
+        'USER': env('DATABASE_USER'),
+        'PASSWORD': env('DATABASE_PASSWORD'),
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
