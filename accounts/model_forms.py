@@ -12,6 +12,7 @@ from accounts.tasks import send_confirmation_code_task
 
 User = get_user_model()
 
+
 class RegistrationModelForm(UserCreationForm):
 
     class Meta:

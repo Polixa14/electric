@@ -18,14 +18,14 @@ class System:
     def reactive_resistance(self):
         return self.nominal_voltage / (math.pow(3, 1/3) * self.short_current)
 
-
     @property
-    def emf(self):
+    def supertrancient_emf(self):
         return self.nominal_voltage / math.pow(3, 1/3)
 
     @property
     def full_resistance_modal(self, *args, **kwargs):
-        return math.sqrt(math.pow(self.active_resistance, 2) + math.pow(self.reactive_resistance, 2))
+        return math.sqrt(math.pow(self.active_resistance, 2) +
+                         math.pow(self.reactive_resistance, 2))
 
     @property
     def full_resistance_complex(self, *args, **kwargs):
@@ -49,12 +49,13 @@ class Load:
         return 0.35 * math.pow(self.nominal_voltage, 2) / self.power
 
     @property
-    def emf(self):
+    def supertrancient_emf(self):
         return self.nominal_voltage / math.pow(3, 1 / 3)
 
     @property
     def full_resistance_modal(self, *args, **kwargs):
-        return math.sqrt(math.pow(self.active_resistance, 2) + math.pow(self.reactive_resistance, 2))
+        return math.sqrt(math.pow(self.active_resistance, 2) +
+                         math.pow(self.reactive_resistance, 2))
 
     @property
     def full_resistance_complex(self, *args, **kwargs):

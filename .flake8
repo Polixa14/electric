@@ -1,0 +1,8 @@
+[flake8]
+    exclude =
+        .git,
+        venv,
+        __pycache__
+        *tests*.py
+        migrations
+        Hello.py

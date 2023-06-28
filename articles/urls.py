@@ -1,7 +1,6 @@
 from django.urls import path, re_path
-from articles.views import ArticleView, ArticleDetailView, LikeOrDislikeArticleView
-from django.contrib.auth.views import LogoutView
-from accounts.views import LoginView
+from articles.views import ArticleView, ArticleDetailView, \
+    LikeOrDislikeArticleView
 
 
 urlpatterns = [

@@ -37,7 +37,7 @@ class ArticleDetailView(FormView):
         context['likes'] = Like.objects.filter(article=self.article,
                                                is_like=True).count()
         context['dislikes'] = Like.objects.filter(article=self.article,
-                                               is_like=False).count()
+                                                  is_like=False).count()
         context['comments'] = Comment.objects.filter(article=self.article)
         if self.request.user.is_anonymous:
             kwargs.pop('form')

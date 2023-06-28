@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from apparatus.models import Transformer, AutoTransformer, SyncMotor, AsyncMotor, Line, Generator
+from apparatus.models import Transformer, AutoTransformer, SyncMotor,\
+    AsyncMotor, Line, Generator
 from rest_framework.exceptions import ValidationError
 from apis.shorts_calculation.scheme_elements_classes import Load, System
 
@@ -65,6 +66,12 @@ class NetworkSerializer(serializers.Serializer):
         }
 
         if not data.get('element'):
-            raise ValidationError(f'You should pass the data for element with startpoint {attrs.get("startpoint")} '
-                                  f'and endpoint {attrs.get("endpoint")}')
+            raise ValidationError(f'You should pass the data for element with '
+                                  f'startpoint {attrs.get("startpoint")} and '
+                                  f'endpoint {attrs.get("endpoint")}')
         return data
+
+
+class CalculationDataSerializer(serializers.Serializer):
+    calculation_point = serializers.IntegerField(required=True)
+    network = NetworkSerializer(many=True, required=True)

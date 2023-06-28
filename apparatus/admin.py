@@ -1,5 +1,6 @@
 from django.contrib import admin
-from apparatus.models import Transformer, AutoTransformer, SyncMotor, AsyncMotor, Line, Generator
+from apparatus.models import Transformer, AutoTransformer, SyncMotor, \
+    AsyncMotor, Line, Generator
 
 
 @admin.register(AutoTransformer)

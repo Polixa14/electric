@@ -61,7 +61,8 @@ swagger_urlpatterns = [
         name='schema-redoc'),
 ]
 
-urlpatterns = urlpatterns + i18n_patterns(*i18n_urlpatterns) + swagger_urlpatterns
+urlpatterns = urlpatterns + i18n_patterns(*i18n_urlpatterns) + \
+              swagger_urlpatterns
 
 if settings.DEBUG:
     from django.conf.urls.static import static
