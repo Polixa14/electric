@@ -1,7 +1,7 @@
 import math
 from apis.shorts_calculation.graph import Graph
 
-# Todo: refactoring, write method for short_current_calc
+# Todo: refactoring
 
 
 def make_substitution_scheme(elements_list):
@@ -29,13 +29,23 @@ def make_substitution_scheme(elements_list):
     return substitution_elements
 
 
-class ShortsCalculation(Graph):
+def calculate_short_current(scheme):
+    short_current = 0
+    for elem in scheme:
+        emf = elem['params'].get('emf')
+        x = elem['params'].get('reactive_resistance')
+        r = elem['params'].get('active_resistance')
+        z = math.sqrt(math.pow(x, 2) + math.pow(r, 2))
+        short_current += (emf / z)
+    return short_current
+
+
+class ShortsScheme(Graph):
 
     def calculate_short_circuit(self, elements_list, short_point):
         scheme = make_substitution_scheme(elements_list)
         self.fill_graph(scheme)
         self.transform_to_calc_scheme(short_point)
-        short_current = 1   # hardcode
         calculation_scheme = []
         for start_vertex in range(self.num_vertices):
             for end_vertex in range(self.num_vertices):
@@ -50,6 +60,7 @@ class ShortsCalculation(Graph):
                         "endpoint": end_vertex,
                         "params": edge
                     })
+        short_current = calculate_short_current(calculation_scheme)
         return calculation_scheme, short_current
 
     def fill_graph(self, scheme):
@@ -139,29 +150,43 @@ class ShortsCalculation(Graph):
         DSF traversal of graph. If next vertex has connections only with
         current vertex and another one - its means
         this vertex and current vertex are series and must be summed.
+        Elif edge between curren vertex and next vertex has only resistance
+        and next vertex doesn't have another connection - we should delete
+        them, because it is just dead end.
         After summing graph must be checked for parallel edges with emf.
         After that method start from the short_point again.
         """
-        visited[current_vertex.get_vertex_id()] = True
+        current_vertex_id = current_vertex.get_vertex_id()
+        visited[current_vertex_id] = True
         for vertex in current_vertex.get_connections(self):
+            vertex_id = vertex.get_vertex_id()
             vertex_connections = vertex.get_connections(self)
             vertex_connections_exclude_current = [vertex for vertex in
                                                   vertex_connections
                                                   if vertex != current_vertex]
             if vertex.get_vertex_id() not in visited:
-                if len(vertex_connections_exclude_current) == 1:
-                    first_vertex_id = current_vertex.get_vertex_id()
-                    common_vertex_id = vertex.get_vertex_id()
+                first_vertex_id = current_vertex.get_vertex_id()
+                common_vertex_id = vertex.get_vertex_id()
+                if len(vertex_connections_exclude_current) == 1 \
+                        and common_vertex_id != short_point:
                     last_vertex_id = \
                         vertex_connections_exclude_current[0].get_vertex_id()
                     self.add_two_edges(
                         first_vertex_id,
                         common_vertex_id,
-                        last_vertex_id
+                        last_vertex_id,
                     )
                     self.merge_parallel_edges_with_emf()
                     self.transform_to_calc_scheme(short_point)
                     break
+                elif len(vertex_connections_exclude_current) == 0 \
+                        and len(vertex_connections) != 0:
+                    if vertex_id != short_point:
+                        edge = self.adj_matrix[current_vertex_id][vertex_id]
+                        if not edge.get('emf'):
+                            self.delete_edge(current_vertex_id, vertex_id)
+                            self.transform_to_calc_scheme(short_point)
+                            break
                 else:
                     self.transform_to_calc_scheme_recursion(
                         vertex,
@@ -258,4 +283,21 @@ class ShortsCalculation(Graph):
                                 end_vertex,
                                 self.adj_matrix[start_vertex][end_vertex]
                             )
+                        self.delete_edge(start_vertex, end_vertex)
+
+    def delete_edges_without_emf(self, short_point):
+        for start_vertex in range(self.num_vertices):
+            for end_vertex in range(self.num_vertices):
+                edge = self.adj_matrix[start_vertex][end_vertex]
+                if edge != -1 and not edge.get('emf'):
+                    start_connections_count = len(self.get_vertex_instance(
+                        start_vertex
+                    ).get_connections(self))
+                    end_connections_count = len(self.get_vertex_instance(
+                        end_vertex
+                    ).get_connections(self))
+                    if (start_connections_count == 1 and
+                        start_vertex != short_point) or \
+                            (end_connections_count == 1 and
+                             end_vertex != short_point):
                         self.delete_edge(start_vertex, end_vertex)

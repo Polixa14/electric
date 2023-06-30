@@ -2,7 +2,7 @@
 from apis.shorts_calculation.serializers import CalculationDataSerializer
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from apis.shorts_calculation.calculation_helpers import ShortsCalculation, \
+from apis.shorts_calculation.calculation_helpers import ShortsScheme, \
     make_substitution_scheme
 from rest_framework.response import Response
 
@@ -20,14 +20,16 @@ class ShortsCalculationViewSet(viewsets.GenericViewSet):
             for elem in network:
                 vertices.append(elem['startpoint'])
                 vertices.append(elem['endpoint'])
-            scheme = ShortsCalculation(len(set(vertices)))
+            scheme = ShortsScheme(len(set(vertices)))
             equivalent_circuit = make_substitution_scheme(network)
-            result = scheme.calculate_short_circuit(
+            result_scheme, short_current = scheme.calculate_short_circuit(
                 network,
                 serializer.validated_data['calculation_point']
             )
             return Response(
-                {'equivalent_circuit': equivalent_circuit, 'result': result},
+                {'equivalent_circuit': equivalent_circuit,
+                 'result_scheme': result_scheme,
+                 'short_current': short_current},
                 status=status.HTTP_200_OK
             )
         else:
