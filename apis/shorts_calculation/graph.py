@@ -29,7 +29,7 @@ class Graph:
         self.num_vertices = num_vertices
         self.adj_matrix = [[-1] * self.num_vertices for _ in
                            range(self.num_vertices)]
-        self.vertices = [Vertex(i) for i in range(0, self.num_vertices)]
+        self.vertices = [Vertex(i) for i in range(self.num_vertices)]
 
     def set_vertex(self, vertex, idx):
         if 0 <= vertex < self.num_vertices:
@@ -65,13 +65,3 @@ class Graph:
             for v in range(0, self.num_vertices):
                 row.append(self.adj_matrix[u][v])
             print(row)
-
-    def get_edges(self):
-        edges = []
-        for u in range(0, self.num_vertices):
-            for v in range(0, self.num_vertices):
-                if self.adj_matrix[u][v] != -1:
-                    frm = self.vertices[u].get_vertex_id()
-                    to = self.vertices[v].get_vertex_id()
-                    edges.append((frm, to, self.adj_matrix[u][v]))
-        return edges

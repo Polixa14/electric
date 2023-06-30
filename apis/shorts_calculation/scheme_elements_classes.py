@@ -16,11 +16,11 @@ class System:
 
     @property
     def reactive_resistance(self):
-        return self.nominal_voltage / (math.pow(3, 1/3) * self.short_current)
+        return self.nominal_voltage / (math.sqrt(3) * self.short_current)
 
     @property
     def supertrancient_emf(self):
-        return self.nominal_voltage / math.pow(3, 1/3)
+        return self.nominal_voltage / math.sqrt(3)
 
     @property
     def full_resistance_modal(self, *args, **kwargs):
@@ -50,7 +50,7 @@ class Load:
 
     @property
     def supertrancient_emf(self):
-        return self.nominal_voltage / math.pow(3, 1 / 3)
+        return self.nominal_voltage / math.sqrt(3)
 
     @property
     def full_resistance_modal(self, *args, **kwargs):
@@ -60,3 +60,22 @@ class Load:
     @property
     def full_resistance_complex(self, *args, **kwargs):
         return complex(self.active_resistance, self.reactive_resistance)
+
+
+class Line:
+    def __init__(self, active_resistivity, reactive_resistivity, length):
+        self.active_resistivity = active_resistivity
+        self.reactive_resistivity = reactive_resistivity
+        self.length = length
+
+    def __repr__(self):
+        return f'Line - r={self.active_resistance},' \
+               f' x={self.reactive_resistance}'
+
+    @property
+    def active_resistance(self):
+        return self.active_resistivity * self.length
+
+    @property
+    def reactive_resistance(self):
+        return self.reactive_resistivity * self.length

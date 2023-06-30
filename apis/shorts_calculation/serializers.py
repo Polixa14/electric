@@ -2,7 +2,7 @@ from rest_framework import serializers
 from apparatus.models import Transformer, AutoTransformer, SyncMotor,\
     AsyncMotor, Line, Generator
 from rest_framework.exceptions import ValidationError
-from apis.shorts_calculation.scheme_elements_classes import Load, System
+from apis.shorts_calculation.scheme_elements_classes import Load, System, Line
 
 
 class SystemSerializer(serializers.Serializer):
@@ -21,9 +21,23 @@ class LoadSerializer(serializers.Serializer):
         return Load(attrs['nominal_voltage'], attrs['power'])
 
 
+class LineSerializer(serializers.Serializer):
+    active_resistivity = serializers.FloatField()
+    reactive_resistivity = serializers.FloatField()
+    length = serializers.FloatField()
+
+    def validate(self, attrs):
+        return Line(
+            attrs['active_resistivity'],
+            attrs['reactive_resistivity'],
+            attrs['length']
+        )
+
+
 class InstanceSerializer(serializers.Serializer):
     type = serializers.CharField(max_length=255)
     id = serializers.UUIDField(required=False)
+    length = serializers.FloatField(required=False)
 
     def validate(self, attrs):
         type_to_model = {
@@ -31,8 +45,7 @@ class InstanceSerializer(serializers.Serializer):
             'autotransformer': AutoTransformer,
             'generator': Generator,
             'syncmotor': SyncMotor,
-            'asyncmotor': AsyncMotor,
-            'line': Line
+            'asyncmotor': AsyncMotor
         }
         model = type_to_model.get(attrs['type'])
         try:
@@ -44,6 +57,7 @@ class InstanceSerializer(serializers.Serializer):
 class CustomSerializer(serializers.Serializer):
     system = SystemSerializer(required=False)
     load = LoadSerializer(required=False)
+    line = LineSerializer(required=False)
 
 
 class NetworkSerializer(serializers.Serializer):
@@ -56,13 +70,15 @@ class NetworkSerializer(serializers.Serializer):
         custom_element = attrs.get('custom_element')
         system = None
         load = None
+        line = None
         if custom_element:
             system = custom_element.get('system')
             load = custom_element.get('load')
+            line = custom_element.get('line')
         data = {
             'startpoint': attrs['startpoint'],
             'endpoint': attrs['endpoint'],
-            'element': attrs.get('db_element') or system or load
+            'element': attrs.get('db_element') or system or load or line
         }
 
         if not data.get('element'):
