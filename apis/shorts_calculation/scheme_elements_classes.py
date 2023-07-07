@@ -19,7 +19,7 @@ class System:
         return self.nominal_voltage / (math.sqrt(3) * self.short_current)
 
     @property
-    def supertrancient_emf(self):
+    def emf(self):
         return self.nominal_voltage / math.sqrt(3)
 
     @property
@@ -33,7 +33,7 @@ class System:
 
 
 class Load:
-    def __init(self, voltage, power):
+    def __init__(self, voltage, power):
         self.nominal_voltage = voltage
         self.power = power
 
@@ -49,7 +49,7 @@ class Load:
         return 0.35 * math.pow(self.nominal_voltage, 2) / self.power
 
     @property
-    def supertrancient_emf(self):
+    def emf(self):
         return self.nominal_voltage / math.sqrt(3)
 
     @property

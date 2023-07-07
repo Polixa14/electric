@@ -63,7 +63,7 @@ class BaseMotor(BaseApparatus):
     def reactive_resistance(self, *args, **kwargs):
         return ((self.supertrancsient_resistance_relative *
                  math.pow(self.nominal_voltage, 2)) /
-                (self.nominal_active_power / self.cos_fi))
+                (self.nominal_active_power / (self.cos_fi * self.efficiency)))
 
     class Meta:
         abstract = True
@@ -166,8 +166,11 @@ class AutoTransformer(BaseApparatus):
                 / (self.nominal_power * 100))
 
 
-class Generator(BaseApparatus):
-    pass
+class Generator(BaseMotor):
 
-
-# Todo: generators!!!
+    @property
+    def supertrancient_emf(self, *args, **kwargs):
+        sin_fi = math.sin(math.acos(self.cos_fi))
+        return math.sqrt(math.pow(1 * self.cos_fi, 2) +
+                         math.pow(1 * sin_fi + 1 *
+                                  self.supertrancsient_resistance_relative, 2))

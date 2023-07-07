@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apparatus.models import Transformer, AutoTransformer, SyncMotor,\
-    AsyncMotor, Line, Generator
+    AsyncMotor, Generator
 from rest_framework.exceptions import ValidationError
 from apis.shorts_calculation.scheme_elements_classes import Load, System, Line
 

@@ -1,64 +1,77 @@
 import math
-from apis.shorts_calculation.graph import Graph
+from apis.shorts_calculation.graph import Graph, Vertex
 
-# Todo: refactoring, forbid parallel trans, implement possibility of
-#  difference voltage of trans and rate voltages
-
-
-def make_substitution_scheme(elements_list):
-    """
-    function to transform elements_list into scheme elements list.
-    All the params we will need are resistances, location points and emf of
-    each element
-    """
-    substitution_elements = []
-    for element in elements_list:
-        emf = None
-        try:
-            emf = element['element'].supertrancient_emf
-        except AttributeError:
-            pass
-        new_element = {
-                "startpoint": element['startpoint'],
-                "endpoint": element['endpoint'],
-                "active_resistance": element['element'].active_resistance,
-                "reactive_resistance": element['element'].reactive_resistance,
-                "emf": emf,
-                "element_type": element['element'].__class__.__name__
-            }
-        if element['element'].__class__.__name__ == 'Transformer':
-            new_element['high_voltage'] = \
-                element['element'].nominal_voltage_high
-            new_element['low_voltage'] = \
-                element['element'].nominal_voltage_low
-        substitution_elements.append(new_element)
-    return substitution_elements
-
-
-def calculate_short_current(scheme):
-    short_current = 0
-    for elem in scheme:
-        emf = elem['params'].get('emf')
-        x = elem['params'].get('reactive_resistance')
-        r = elem['params'].get('active_resistance')
-        z = math.sqrt(math.pow(x, 2) + math.pow(r, 2))
-        short_current += (emf / z)
-    return short_current
+# Todo: refactoring, implement autotransformers
 
 
 class ShortsScheme(Graph):
+    def __init__(self, num_vertices=0):
+        self.short_point = None
+        super().__init__(num_vertices)
 
     def calculate_short_circuit(self, elements_list, short_point):
-        scheme = make_substitution_scheme(elements_list)
-        self.fill_scheme(scheme)
-        self.lead_to_base_voltage()
-        self.transform_to_calc_scheme(short_point)
+        self.short_point = short_point
+        scheme = self.make_substitution_scheme(elements_list)
+        self.configure_scheme(scheme)
         calculation_scheme = self.build_calculation_scheme()
-        short_current = calculate_short_current(calculation_scheme)
+        self.transform_to_calc_scheme()
+        short_current = self.calculate_periodic_current()
         return calculation_scheme, short_current
 
-    def build_calculation_scheme(self):
+    def calculate_periodic_current(self):
+        scheme = self.build_calculation_scheme()
+        short_current = 0
+        for elem in scheme:
+            emf = elem['params'].get('emf')
+            x = elem['params'].get('reactive_resistance')
+            r = elem['params'].get('active_resistance')
+            z = math.sqrt(math.pow(x, 2) + math.pow(r, 2))
+            short_current += (emf / z)
+        return short_current
 
+    @staticmethod
+    def make_substitution_scheme(elements_list):
+        """
+        function to transform elements_list into scheme elements list.
+        All the params we will need are resistances, location points, type and
+        emf of each element
+        """
+        substitution_elements = []
+        for element in elements_list:
+            emf = None
+            supertrancient_emf = None
+            try:
+                emf = element['element'].emf
+            except AttributeError:
+                pass
+            try:
+                supertrancient_emf = element['element'].supertrancient_emf
+            except AttributeError:
+                pass
+
+            if supertrancient_emf:
+                emf = (supertrancient_emf * element[
+                    'element'].nominal_voltage /
+                       math.sqrt(3))
+
+            new_element = {
+                "startpoint": element['startpoint'],
+                "endpoint": element['endpoint'],
+                "active_resistance": element['element'].active_resistance,
+                "reactive_resistance": element[
+                    'element'].reactive_resistance,
+                "emf": emf,
+                "element_type": element['element'].__class__.__name__
+            }
+            if element['element'].__class__.__name__ == 'Transformer':
+                new_element['high_voltage'] = \
+                    element['element'].nominal_voltage_high
+                new_element['low_voltage'] = \
+                    element['element'].nominal_voltage_low
+            substitution_elements.append(new_element)
+        return substitution_elements
+
+    def build_calculation_scheme(self):
         calculation_scheme = []
         for start_vertex in range(self.num_vertices):
             for end_vertex in range(self.num_vertices):
@@ -75,17 +88,39 @@ class ShortsScheme(Graph):
                     })
         return calculation_scheme
 
-    def fill_scheme(self, scheme):
+    def recreate_scheme(self, scheme):
+        vertices = set()
+        for element in scheme:
+            vertices.add(element.get('startpoint'))
+            vertices.add(element.get('endpoint'))
+        self.num_vertices = len(vertices)
+        self.adj_matrix = [[-1] * self.num_vertices for _ in
+                           range(self.num_vertices)]
+        self.vertices = [Vertex(i) for i in range(self.num_vertices)]
+        self.configure_scheme(scheme, reduced=True)
+
+    def configure_scheme(self, scheme: list[dict], reduced: bool = False):
+        """
+        Method fill all existing edges
+        :param scheme:substitution scheme
+        :param reduced: False when run first time, then always True
+        """
+        self.fill_scheme(scheme)
+        if not reduced:
+            self.reduce_to_base_voltage()
+        self.look_for_triangles()
+
+    def fill_scheme(self, scheme: list[dict]):
+        """
+
+        :param scheme: substitution scheme
+        :return:
+        """
         for scheme_element in scheme:
             start_vertex = scheme_element.pop('startpoint')
             end_vertex = scheme_element.pop('endpoint')
             self.set_vertex(start_vertex, start_vertex)
             self.set_vertex(end_vertex, end_vertex)
-            """Bellow we add new edge, if edge between two vertices doesn't 
-            exist, otherwise - merge two parallel edges into one.
-            Another case with edges, contains EMF. For this edges we have to
-            merge edges with same end/start points. Note: one of two points
-            for this edges always 'free'."""
             if self.adj_matrix[start_vertex][end_vertex] != -1:
                 self.merge_parallel_edges(
                     start_vertex,
@@ -94,72 +129,6 @@ class ShortsScheme(Graph):
                 )
             else:
                 self.add_edge(start_vertex, end_vertex, scheme_element)
-
-    def lead_to_base_voltage(self):
-        """
-        System must be with "0" startpoint. If it has been merged in another
-        system - look for another edge with the smallest startpoint
-        """
-        visited = {}
-        """Bellow I hardcode it, because scheme has to start from 
-        generation always"""
-        current_vertex = self.vertices[0]
-        start_edge = self.adj_matrix[0][1]
-        current_voltage_rate = int(start_edge.get('emf') * math.sqrt(3))
-        self.lead_to_base_voltage_recursion(
-            current_vertex,
-            visited,
-            current_voltage_rate
-        )
-
-    def lead_to_base_voltage_recursion(self,
-                                       current_vertex,
-                                       visited,
-                                       current_voltage_rate,
-                                       coefficient=1):
-        for vertex in current_vertex.get_connections(self):
-            if vertex.get_vertex_id() not in visited:
-                current_vertex_id = current_vertex.get_vertex_id()
-                vertex_id = vertex.get_vertex_id()
-                visited[current_vertex_id] = True
-                element = self.adj_matrix[current_vertex_id][vertex_id]
-                new_active_resistance = (element.get('active_resistance') *
-                                         math.pow(coefficient, 2))
-                new_reactive_resistance = (element.get('reactive_resistance') *
-                                           math.pow(coefficient, 2))
-                emf = element.get('emf')
-                new_emf = emf * coefficient if emf else emf
-                new_element = {
-                    "active_resistance": new_active_resistance,
-                    "reactive_resistance": new_reactive_resistance,
-                    "emf": new_emf,
-                    "element_type": element.get('element_type')
-                }
-                self.add_edge(current_vertex_id, vertex_id, new_element)
-                if element.get('element_type') == 'Transformer':
-                    transformer_high_voltage = element.get('high_voltage')
-                    transformer_low_voltage = element.get('low_voltage')
-                    if current_voltage_rate == transformer_high_voltage:
-                        new_coefficient = (transformer_high_voltage /
-                                           transformer_low_voltage)
-                        another_voltage_rate = int(transformer_low_voltage)
-                    else:
-                        new_coefficient = (transformer_low_voltage /
-                                           transformer_high_voltage)
-                        another_voltage_rate = int(transformer_high_voltage)
-                    self.lead_to_base_voltage_recursion(
-                        vertex,
-                        visited,
-                        another_voltage_rate,
-                        new_coefficient
-                    )
-                else:
-                    self.lead_to_base_voltage_recursion(
-                        vertex,
-                        visited,
-                        current_voltage_rate,
-                        coefficient
-                    )
 
     def merge_parallel_edges(self, first_vertex, second_vertex, new_edge):
         existing_edge = self.adj_matrix[first_vertex][second_vertex]
@@ -174,6 +143,8 @@ class ShortsScheme(Graph):
         full_resistance_2 = math.sqrt(math.pow(active_resistance_2, 2) +
                                       math.pow(reactive_resistance_2, 2))
         result_emf = None
+
+        # Two cases exist: both edges with emf or both without
         if emf_1 and emf_2:
             result_emf = ((emf_1 * full_resistance_2 +
                            emf_2 * full_resistance_1) /
@@ -189,31 +160,20 @@ class ShortsScheme(Graph):
             self.adj_matrix[second_vertex][first_vertex] = {
             'emf': result_emf,
             'active_resistance': result_active_resistance,
-            'reactive_resistance': result_reactive_resistance
+            'reactive_resistance': result_reactive_resistance,
+            'element_type': existing_edge.get('element_type')
         }
 
-    def transform_to_calc_scheme(self, short_point):
+    def transform_to_calc_scheme(self):
         visited = {}
         self.transform_to_calc_scheme_recursion(
-            self.get_vertex_instance(short_point),
-            visited,
-            short_point
+            self.get_vertex_instance(self.short_point),
+            visited
         )
 
     def transform_to_calc_scheme_recursion(self,
                                            current_vertex,
-                                           visited,
-                                           short_point):
-        """
-        DSF traversal of graph. If next vertex has connections only with
-        current vertex and another one - its means
-        this vertex and current vertex are series and must be summed.
-        Elif edge between curren vertex and next vertex has only resistance
-        and next vertex doesn't have another connection - we should delete
-        them, because it is just dead end.
-        After summing graph must be checked for parallel edges with emf.
-        After that method start from the short_point again.
-        """
+                                           visited):
         current_vertex_id = current_vertex.get_vertex_id()
         visited[current_vertex_id] = True
         for vertex in current_vertex.get_connections(self):
@@ -225,61 +185,87 @@ class ShortsScheme(Graph):
             if vertex.get_vertex_id() not in visited:
                 first_vertex_id = current_vertex.get_vertex_id()
                 common_vertex_id = vertex.get_vertex_id()
+
+                # Case when vertex(common point between 2 edges)
+                # has 2 connections include current vertex means edge
+                # between current_vertex and vertex is series to edge
+                # between vertex and its another connection
                 if len(vertex_connections_exclude_current) == 1 \
-                        and common_vertex_id != short_point:
+                        and common_vertex_id != self.short_point:
                     last_vertex_id = \
                         vertex_connections_exclude_current[0].get_vertex_id()
-                    self.add_two_edges(
+                    self.sum_up_two_edges(
                         first_vertex_id,
                         common_vertex_id,
                         last_vertex_id,
                     )
+
+                    # When two series edges added - need to check scheme for
+                    # parallel edges with emf and same element type and merge
+                    # them
                     self.merge_parallel_edges_with_emf()
-                    self.transform_to_calc_scheme(short_point)
+
+                    # The original schema has changed - start transforming from
+                    # the beginning and break current transforming
+                    self.transform_to_calc_scheme()
                     break
+
+                # When vertex connected only with current_vertex and short
+                # point not on this vertex - delete it.
                 elif len(vertex_connections_exclude_current) == 0 \
                         and len(vertex_connections) != 0:
-                    if vertex_id != short_point:
+                    if vertex_id != self.short_point:
                         edge = self.adj_matrix[current_vertex_id][vertex_id]
                         if not edge.get('emf'):
                             self.delete_edge(current_vertex_id, vertex_id)
-                            self.transform_to_calc_scheme(short_point)
+
+                            # The original schema has changed - start
+                            # transforming from the beginning and break
+                            # current transforming
+                            self.transform_to_calc_scheme()
                             break
                 else:
+
+                    # If nothing to sum_up/merge - go deeper
                     self.transform_to_calc_scheme_recursion(
                         vertex,
                         visited,
-                        short_point
                     )
 
-    def add_two_edges(self, first_vertex_id, common_vertex_id, last_vertex_id):
+    def sum_up_two_edges(self,
+                         first_vertex_id,
+                         common_vertex_id,
+                         last_vertex_id):
         """
         Method to find summary resistance of two series elements.
         If edge between two vertices already exists - merge result to existing
         edge
         """
-        emf_1 = self.adj_matrix[first_vertex_id][common_vertex_id].get('emf')
-        emf_2 = self.adj_matrix[common_vertex_id][last_vertex_id].get('emf')
-        active_resistance_1 = \
-            (self.adj_matrix[first_vertex_id][common_vertex_id]
-             .get('active_resistance'))
-        active_resistance_2 = \
-            (self.adj_matrix[common_vertex_id][last_vertex_id]
-             .get('active_resistance'))
-        reactive_resistance_1 = \
-            (self.adj_matrix[first_vertex_id][common_vertex_id]
-             .get('reactive_resistance'))
-        reactive_resistance_2 = \
-            (self.adj_matrix[common_vertex_id][last_vertex_id]
-             .get('reactive_resistance'))
-        result_emf = emf_1 or emf_2 or None
+        edge_1 = self.adj_matrix[first_vertex_id][common_vertex_id]
+        edge_2 = self.adj_matrix[common_vertex_id][last_vertex_id]
+        emf_1 = edge_1.get('emf')
+        emf_2 = edge_2.get('emf')
+        active_resistance_1 = edge_1.get('active_resistance')
+        active_resistance_2 = edge_2.get('active_resistance')
+        reactive_resistance_1 = edge_1.get('reactive_resistance')
+        reactive_resistance_2 = edge_2.get('reactive_resistance')
+        result_emf = None
+        if emf_1:
+            result_emf = emf_1
+            e_type = edge_1.get('element_type')
+        elif emf_2:
+            result_emf = emf_2
+            e_type = edge_2.get('element_type')
+        else:
+            e_type = 'result resistance'
         result_active_resistance = active_resistance_1 + active_resistance_2
         result_reactive_resistance = \
             reactive_resistance_1 + reactive_resistance_2
         new_edge = {
             "emf": result_emf,
             "active_resistance": result_active_resistance,
-            "reactive_resistance": result_reactive_resistance
+            "reactive_resistance": result_reactive_resistance,
+            "element_type": e_type
         }
 
         if self.adj_matrix[first_vertex_id][last_vertex_id] == -1:
@@ -324,38 +310,239 @@ class ShortsScheme(Graph):
         """
         for start_vertex in range(self.num_vertices):
             for end_vertex in range(self.num_vertices):
-                if self.adj_matrix[start_vertex][end_vertex] != -1 and \
-                        self.adj_matrix[start_vertex][end_vertex].get('emf'):
-                    if self.find_parallel_edge(start_vertex, end_vertex):
+                current_edge = self.adj_matrix[start_vertex][end_vertex]
+
+                # Checking if this is an existing edge and this is an "emf"
+                # edge
+                if current_edge != -1 and current_edge.get('emf'):
+                    parallel_edge = self.find_parallel_edge(
+                        start_vertex,
+                        end_vertex
+                    )
+                    if parallel_edge:
                         is_same_startpoint, parallel_edge_free_point = \
-                            self.find_parallel_edge(start_vertex, end_vertex)
+                            parallel_edge
+                        # When parallel edge found and common point determined
+                        # checking both edges have same element type
                         if is_same_startpoint:
                             self.merge_parallel_edges(
                                 parallel_edge_free_point,
                                 start_vertex,
                                 self.adj_matrix[start_vertex][end_vertex]
-                            )
+                                )
+                            self.delete_edge(start_vertex, end_vertex)
                         else:
                             self.merge_parallel_edges(
                                 parallel_edge_free_point,
                                 end_vertex,
                                 self.adj_matrix[start_vertex][end_vertex]
                             )
-                        self.delete_edge(start_vertex, end_vertex)
+                            self.delete_edge(start_vertex, end_vertex)
 
-    def delete_edges_without_emf(self, short_point):
+    def look_for_triangles(self):
+        visited = {}
+        current_vertex = self.get_vertex_instance(self.short_point)
+        self.look_for_triangles_recursion(
+            current_vertex,
+            visited
+        )
+
+    def look_for_triangles_recursion(self,
+                                     current_vertex,
+                                     visited):
+        current_vertex_id = current_vertex.get_vertex_id()
+        visited[current_vertex_id] = True
+        for vertex in current_vertex.get_connections(self):
+            if vertex.get_vertex_id() not in visited:
+                for next_vertex in vertex.get_connections(self):
+                    if current_vertex in next_vertex.get_connections(self):
+                        vertex_id = vertex.get_vertex_id()
+                        next_vertex_id = next_vertex.get_vertex_id()
+                        self.triangle_to_star(current_vertex_id,
+                                              vertex_id,
+                                              next_vertex_id)
+                        break
+                self.look_for_triangles_recursion(vertex,
+                                                  visited)
+
+    def triangle_to_star(self,
+                         first_vertex,
+                         second_vertex,
+                         last_vertex):
+        edge_1 = self.adj_matrix[first_vertex][second_vertex]
+        edge_2 = self.adj_matrix[second_vertex][last_vertex]
+        edge_3 = self.adj_matrix[last_vertex][first_vertex]
+        active_resistance_1 = edge_1.get('active_resistance')
+        reactive_resistance_1 = edge_1.get('reactive_resistance')
+        active_resistance_2 = edge_2.get('active_resistance')
+        reactive_resistance_2 = edge_2.get('reactive_resistance')
+        active_resistance_3 = edge_3.get('active_resistance')
+        reactive_resistance_3 = edge_3.get('reactive_resistance')
+        ray_active_resistance_1 = (active_resistance_1 * active_resistance_3 /
+                                   (active_resistance_1 + active_resistance_2 +
+                                    active_resistance_3))
+        ray_reactive_resistance_1 = (reactive_resistance_1 *
+                                     reactive_resistance_3 /
+                                     (reactive_resistance_1 +
+                                      reactive_resistance_2 +
+                                      reactive_resistance_3))
+
+        ray_active_resistance_2 = (active_resistance_1 * active_resistance_2 /
+                                   (active_resistance_1 + active_resistance_2 +
+                                    active_resistance_3))
+        ray_reactive_resistance_2 = (reactive_resistance_1 *
+                                     reactive_resistance_2 /
+                                     (reactive_resistance_1 +
+                                      reactive_resistance_2 +
+                                      reactive_resistance_3))
+
+        ray_active_resistance_3 = (active_resistance_2 * active_resistance_3 /
+                                   (active_resistance_1 + active_resistance_2 +
+                                    active_resistance_3))
+        ray_reactive_resistance_3 = (reactive_resistance_2 *
+                                     reactive_resistance_3 /
+                                     (reactive_resistance_1 +
+                                      reactive_resistance_2 +
+                                      reactive_resistance_3))
+        scheme = []
+        triangle_first_vertex = min(first_vertex, last_vertex, second_vertex)
+        new_vertex_id = triangle_first_vertex + 1
+        self.delete_edge(first_vertex, second_vertex)
+        self.delete_edge(first_vertex, last_vertex)
+        self.delete_edge(second_vertex, last_vertex)
+        if first_vertex > triangle_first_vertex:
+            first_vertex += 1
+        if second_vertex > triangle_first_vertex:
+            second_vertex += 1
+        if last_vertex > triangle_first_vertex:
+            last_vertex += 1
+        scheme.extend([
+            {
+                "startpoint": first_vertex,
+                "endpoint": new_vertex_id,
+                "active_resistance": ray_active_resistance_1,
+                "reactive_resistance": ray_reactive_resistance_1,
+                "emf": None,
+                "element_type": "result resistance"
+            },
+            {
+                "startpoint": new_vertex_id,
+                "endpoint": second_vertex,
+                "active_resistance": ray_active_resistance_2,
+                "reactive_resistance": ray_reactive_resistance_2,
+                "emf": None,
+                "element_type": "result resistance"
+            },
+            {
+                "startpoint": new_vertex_id,
+                "endpoint": last_vertex,
+                "active_resistance": ray_active_resistance_3,
+                "reactive_resistance": ray_reactive_resistance_3,
+                "emf": None,
+                "element_type": "result resistance"
+            }
+        ])
         for start_vertex in range(self.num_vertices):
             for end_vertex in range(self.num_vertices):
                 edge = self.adj_matrix[start_vertex][end_vertex]
-                if edge != -1 and not edge.get('emf'):
-                    start_connections_count = len(self.get_vertex_instance(
-                        start_vertex
-                    ).get_connections(self))
-                    end_connections_count = len(self.get_vertex_instance(
-                        end_vertex
-                    ).get_connections(self))
-                    if (start_connections_count == 1 and
-                        start_vertex != short_point) or \
-                            (end_connections_count == 1 and
-                             end_vertex != short_point):
-                        self.delete_edge(start_vertex, end_vertex)
+                self.adj_matrix[end_vertex][start_vertex] = -1
+                if edge != -1:
+                    new_start_vertex = start_vertex
+                    new_end_vertex = end_vertex
+                    if new_start_vertex > triangle_first_vertex:
+                        new_start_vertex += 1
+                    if new_end_vertex > triangle_first_vertex:
+                        new_end_vertex += 1
+
+                    scheme.append(
+                        {
+                            "startpoint": new_start_vertex,
+                            "endpoint": new_end_vertex,
+                            "active_resistance": edge.get('active_resistance'),
+                            "reactive_resistance":
+                                edge.get('reactive_resistance'),
+                            "emf": edge.get('emf'),
+                            "element_type": edge.get('element_type')
+                        }
+                    )
+        if self.short_point > triangle_first_vertex:
+            self.short_point += 1
+        self.recreate_scheme(scheme)
+
+    def reduce_to_base_voltage(self):
+        """
+        Method to reduce all params of elements to base voltage.
+        Base voltage - voltage of "emf" element between 0 and 1 vertex
+        """
+        visited = {}
+        current_vertex = self.vertices[0]
+        start_edge = self.adj_matrix[0][1]
+        current_voltage_rate = int(start_edge.get('emf') * math.sqrt(3))
+        self.reduce_to_base_voltage_recursion(
+            current_vertex,
+            visited,
+            current_voltage_rate
+        )
+
+    def reduce_to_base_voltage_recursion(self,
+                                         current_vertex,
+                                         visited,
+                                         current_voltage_rate,
+                                         coefficient=1):
+        current_vertex_id = current_vertex.get_vertex_id()
+        visited[current_vertex_id] = True
+        for vertex in current_vertex.get_connections(self):
+            if vertex.get_vertex_id() not in visited:
+                vertex_id = vertex.get_vertex_id()
+
+                # According to methodology - coefficient applying to all
+                # resistances and emfs. On the base stage - coefficient is 1,
+                # on all another - depends on transformers between base and
+                # another one stage
+                element = self.adj_matrix[current_vertex_id][vertex_id]
+                new_active_resistance = (element.get('active_resistance') *
+                                         math.pow(coefficient, 2))
+                new_reactive_resistance = (element.get('reactive_resistance') *
+                                           math.pow(coefficient, 2))
+                emf = element.get('emf')
+                new_emf = emf * coefficient if emf else emf
+                new_element = {
+                    "active_resistance": new_active_resistance,
+                    "reactive_resistance": new_reactive_resistance,
+                    "emf": new_emf,
+                    "element_type": element.get('element_type')
+                }
+                self.add_edge(current_vertex_id, vertex_id, new_element)
+
+                # When transformer met between two vertices - coefficient
+                # must be changed according to transformer params
+                if element.get('element_type') == 'Transformer':
+                    transformer_high_voltage = element.get('high_voltage')
+                    transformer_low_voltage = element.get('low_voltage')
+                    if current_voltage_rate == transformer_high_voltage:
+                        new_coefficient = (coefficient *
+                                           transformer_high_voltage /
+                                           transformer_low_voltage)
+                        another_voltage_rate = int(transformer_low_voltage)
+                    else:
+                        new_coefficient = (coefficient *
+                                           transformer_low_voltage /
+                                           transformer_high_voltage)
+                        another_voltage_rate = int(transformer_high_voltage)
+                    # Going deeper to the next voltage stage after transformer
+                    # with new coefficient and voltage rate
+                    self.reduce_to_base_voltage_recursion(
+                        vertex,
+                        visited,
+                        another_voltage_rate,
+                        new_coefficient
+                    )
+                else:
+
+                    # Going deeper in base stage
+                    self.reduce_to_base_voltage_recursion(
+                        vertex,
+                        visited,
+                        current_voltage_rate,
+                        coefficient
+                    )
