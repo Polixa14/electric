@@ -3,11 +3,9 @@ version: "3.1"
 services:
   backend:
     build: .
-    command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
+    command: daphne -b 0.0.0.0 -p 8000 electro.asgi:application
     volumes:
       - .:/electro
-    ports:
-      - 8000:8000
     expose:
       - 8000
     restart: always
@@ -37,7 +35,7 @@ services:
     restart: always
   celery:
     build: .
-    command: celery -A project worker -l info
+    command: celery -A electro worker -l info
     restart: always
     volumes:
       - .:/electro
@@ -45,7 +43,7 @@ services:
       - redis
   celery_beat:
     build: .
-    command: celery -A project beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: celery -A electro beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     restart: always
     volumes:
       - .:/electro
@@ -55,12 +53,12 @@ services:
   nginx:
     image: nginx:latest
     ports:
-      - 80:80
+      - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./logs/nginx/:/project/logs/nginx/
-      - ./static_files/:/project/static_files/
-      - ./media/:/project/media/
+      - ./logs/nginx/:/electro/logs/nginx/
+      - ./static_files/:/electro/static_files/
+      - ./media/:/electro/media/
     depends_on:
       - backend
     restart: always
