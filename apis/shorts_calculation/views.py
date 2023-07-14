@@ -15,10 +15,10 @@ class ShortsCalculationViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=data)
         if serializer.is_valid(raise_exception=True):
             network = serializer.validated_data['network']
-            vertices = []   # Todo: set
+            vertices = set()
             for elem in network:
-                vertices.append(elem['startpoint'])
-                vertices.append(elem['endpoint'])
+                vertices.add(elem['startpoint'])
+                vertices.add(elem['endpoint'])
             scheme = ShortsScheme(len(set(vertices)))
             equivalent_circuit = scheme.make_substitution_scheme(network)
             result_scheme, short_current = scheme.calculate_short_circuit(

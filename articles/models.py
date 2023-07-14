@@ -22,7 +22,11 @@ class Article(PKMixin):
 class Like(PKMixin):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     is_like = models.BooleanField(default=True)
-    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    article = models.ForeignKey(
+        Article,
+        on_delete=models.CASCADE,
+        related_name='likes'
+    )
 
     class Meta:
         unique_together = ('user', 'article')
@@ -31,7 +35,11 @@ class Like(PKMixin):
 class Comment(PKMixin):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     text = models.TextField()
-    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    article = models.ForeignKey(
+        Article,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
 
     class Meta:
         ordering = ('-created_at',)

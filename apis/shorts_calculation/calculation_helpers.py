@@ -200,9 +200,8 @@ class ShortsScheme(Graph):
                         last_vertex_id,
                     )
 
-                    # When two series edges added - need to check scheme for
-                    # parallel edges with emf and same element type and merge
-                    # them
+                    # When two series edges summed up - need to check scheme
+                    # for parallel edges with emf and merge them
                     self.merge_parallel_edges_with_emf()
 
                     # The original schema has changed - start transforming from

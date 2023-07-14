@@ -21,10 +21,11 @@ from main.urls import urlpatterns as main_urlpatterns
 from articles.urls import urlpatterns as articles_urlpatterns
 from django.conf import settings
 from django.conf.urls.i18n import i18n_patterns
-from apis.shorts_calculation.urls import urlpatterns as api_shorts_urlpatterns
+from apis.urls import api_urlpatterns
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
+
 
 i18n_urlpatterns = [
     path('accounts/', include(accounts_urlpatterns)),
@@ -35,7 +36,7 @@ i18n_urlpatterns = [
 urlpatterns = [
     path('i18n/', include("django.conf.urls.i18n")),
     path('admin/', admin.site.urls),
-    path('api/v1/', include(api_shorts_urlpatterns))
+    path('api/v1/', include(api_urlpatterns))
 ]
 
 schema_view = get_schema_view(
