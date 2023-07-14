@@ -37,6 +37,7 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -90,6 +91,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'electro.wsgi.application'
+ASGI_APPLICATION = 'electro.asgi.application'
+
 
 LOGOUT_REDIRECT_URL = reverse_lazy('main')
 LOGIN_REDIRECT_URL = reverse_lazy('main')
@@ -102,11 +105,11 @@ AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrPhoneModelBackend']
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'electric',
+        'NAME': env('SQL_DATABASE'),
         'USER': env('DATABASE_USER'),
         'PASSWORD': env('DATABASE_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'HOST': env('SQL_HOST'),
+        'PORT': env('SQL_PORT'),
     }
 }
 
@@ -162,6 +165,7 @@ STATIC_ROOT = 'static_files'
 STATICFILES_DIRS = ['assets']
 MEDIA_URL = 'media/'
 MEDIA_ROOT = 'media'
+DEFAULT_FILE_STORAGE = 'electro.storage.DeleteOldStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -175,8 +179,8 @@ CELERY_RESULT_BACKEND = 'django-db'
 # CELERY_TASK_ALWAYS_EAGER = True
 
 # CELERY_BEAT_SCHEDULE = {
-#     'get currencies': {
-#         'task': 'currencies.tasks.get_currencies_task',
+#     'task_name': {
+#         'task': '',
 #         'schedule': crontab(hour='12', minute='1')
 #     }
 # }
@@ -186,6 +190,6 @@ CELERY_RESULT_BACKEND = 'django-db'
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
-        "LOCATION": "127.0.0.1:11211",
+        "LOCATION": "memcached:11211",
     }
 }
