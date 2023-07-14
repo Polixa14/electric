@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+{% load i18n %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+</head>
+<body>
+    <form method="post" id="form-login">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-orange" form="form-login">{% translate 'Login' %}</button>
+    </form>
+
+</body>
+</html>
