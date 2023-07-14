@@ -8,15 +8,3 @@ build:
 
 run:
   web: daphne -b 0.0.0.0 -p $PORT electro.asgi:application
-  db:
-    image: postgres:13.4
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=database
-
-    redis:
-      image: redis:6.2.5
-      restart: always
