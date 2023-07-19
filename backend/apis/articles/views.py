@@ -1,6 +1,6 @@
 from articles.models import Article, Comment
 from rest_framework import viewsets
-from apis.permissions import IsAdminUserOrReadOnly, IsInstanceOwnerOrReadonly
+from apis.permissions import IsAdminUserOrReadOnly, IsInstanceOwnerOrReadOnly
 from apis.articles.serializers import ArticleSerializer, CommentSerializer
 
 
@@ -14,7 +14,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = (IsInstanceOwnerOrReadonly,)
+    permission_classes = (IsInstanceOwnerOrReadOnly,)
 
     def get_serializer(self, *args, **kwargs):
         kwargs['data'].update({
@@ -26,7 +26,7 @@ class CommentViewSet(viewsets.ModelViewSet):
 class LikeViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = (IsInstanceOwnerOrReadonly,)
+    permission_classes = (IsInstanceOwnerOrReadOnly,)
 
     def get_serializer(self, *args, **kwargs):
         kwargs['data'].update({

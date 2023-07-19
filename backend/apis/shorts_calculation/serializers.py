@@ -47,7 +47,8 @@ class InstanceSerializer(serializers.Serializer):
             'syncmotor': SyncMotor,
             'asyncmotor': AsyncMotor
         }
-        model = type_to_model.get(attrs['type'])
+        instance_type = attrs.pop('type')
+        model = type_to_model.get(instance_type)
         try:
             return model.objects.get(id=attrs['id'])
         except model.DoesNotExist:
@@ -91,3 +92,63 @@ class NetworkSerializer(serializers.Serializer):
 class CalculationDataSerializer(serializers.Serializer):
     calculation_point = serializers.IntegerField(required=True)
     network = NetworkSerializer(many=True, required=True)
+
+
+class SyncMotorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SyncMotor
+        fields = ('id', 'created_at', 'updated_at', 'name', 'normative_doc',
+                  'added_by', 'is_moderated',
+                  'supertransient_resistance_relative', 'nominal_active_power',
+                  'nominal_voltage', 'efficiency', 'cos_fi',
+                  'damping_constant')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class AsyncMotorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AsyncMotor
+        fields = ('id', 'created_at', 'updated_at', 'name', 'normative_doc',
+                  'added_by', 'is_moderated',
+                  'supertransient_resistance_relative', 'nominal_active_power',
+                  'nominal_voltage', 'efficiency', 'cos_fi',
+                  'damping_constant', 'starting_current_factor')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class TransformerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transformer
+        fields = ('id', 'created_at', 'updated_at', 'name', 'normative_doc',
+                  'added_by', 'is_moderated',
+                  'nominal_voltage_high', 'nominal_voltage_low',
+                  'nominal_power', 'short_circuit_voltage',
+                  'short_circuit_active_losses')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class AutoTransformerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transformer
+        fields = ('id', 'created_at', 'updated_at', 'name', 'normative_doc',
+                  'added_by', 'is_moderated', 'nominal_voltage_high',
+                  'nominal_voltage_low', 'nominal_voltage_low',
+                  'nominal_power', 'short_circuit_voltage_high_mid',
+                  'short_circuit_voltage_high_low',
+                  'short_circuit_voltage_mid_low',
+                  'short_circuit_active_losses_high_mid',
+                  'short_circuit_active_losses_high_low',
+                  'short_circuit_active_losses_mid_low')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class GeneratorSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = SyncMotor
+        fields = ('id', 'created_at', 'updated_at', 'name', 'normative_doc',
+                  'added_by', 'is_moderated',
+                  'supertransient_resistance_relative', 'nominal_active_power',
+                  'nominal_voltage', 'efficiency', 'cos_fi',
+                  'damping_constant')
+        read_only_fields = ('id', 'created_at', 'updated_at')

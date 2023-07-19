@@ -1,6 +1,6 @@
 from django.contrib import admin
 from apparatus.models import Transformer, AutoTransformer, SyncMotor, \
-    AsyncMotor, Line, Generator
+    AsyncMotor, Generator
 
 
 @admin.register(AutoTransformer)
@@ -20,11 +20,6 @@ class SyncMotorAdmin(admin.ModelAdmin):
 
 @admin.register(AsyncMotor)
 class AsyncMotorAdmin(admin.ModelAdmin):
-    list_display = ('id', )
-
-
-@admin.register(Line)
-class LineAdmin(admin.ModelAdmin):
     list_display = ('id', )
 
 

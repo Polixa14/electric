@@ -69,16 +69,6 @@ class BaseMotor(BaseApparatus):
         abstract = True
 
 
-class Line(BaseApparatus):
-    type = models.CharField(
-        max_length=16,
-        choices=LineTypeChoices.choices,
-        default=LineTypeChoices.WIRE
-    )
-    active_resistivity = models.FloatField()
-    reactive_resistivity = models.FloatField()
-
-
 class SyncMotor(BaseMotor):
 
     @property
